@@ -1,0 +1,13 @@
+# dependencies & build output
+node_modules/
+dist/
+app/bundle.js
+app/bundle.js.map
+app/bundle.js.LEGAL.txt
+
+# local artifacts
+shot*.png
+*.log
+config.json
+.DS_Store
+Thumbs.db

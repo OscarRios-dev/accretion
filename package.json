@@ -1,0 +1,52 @@
+{
+  "name": "accretion",
+  "productName": "Accretion",
+  "version": "2.2.0",
+  "description": "Explore your Obsidian vault as a 3D galaxy around a ray-traced black hole. Local, private, offline.",
+  "main": "main.js",
+  "author": "Accretion contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OscarRios-dev/accretion.git"
+  },
+  "homepage": "https://github.com/OscarRios-dev/accretion#readme",
+  "bugs": {
+    "url": "https://github.com/OscarRios-dev/accretion/issues"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-md",
+    "knowledge-graph",
+    "second-brain",
+    "pkm",
+    "three-js",
+    "electron",
+    "graph-visualization",
+    "markdown"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "esbuild src/renderer.js --bundle --format=iife --outfile=app/bundle.js --minify --sourcemap --legal-comments=linked --target=chrome130",
+    "start": "npm run build && electron .",
+    "demo": "npm run build && electron . --vault=examples/sample-vault",
+    "test": "node --test \"test/*.test.{js,mjs}\"",
+    "i18n:check": "node scripts/i18n-keys.js",
+    "check": "npm test && npm run i18n:check && npm run build",
+    "shot": "npm run build && electron . --shot=shot.png",
+    "package": "npm run build && node scripts/package.js win32 x64",
+    "package:mac": "npm run build && node scripts/package.js darwin arm64",
+    "package:linux": "npm run build && node scripts/package.js linux x64"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^1.8.0",
+    "@electron/packager": "^20.3.0",
+    "dompurify": "^3.2.6",
+    "electron": "^45.4.1",
+    "esbuild": "^0.28.2",
+    "marked": "^18.2.1",
+    "three": "^0.187.0"
+  }
+}
