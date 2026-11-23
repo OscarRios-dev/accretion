@@ -40,4 +40,8 @@ Try your changes against the bundled demo vault: `npm run demo`.
 
 ## Releasing
 
-`npm run package` (Windows), `npm run package:mac`, `npm run package:linux`. Output goes to `dist/`.
+1. Bump `version` in `package.json` and add a `## x.y.z` section to `CHANGELOG.md`.
+2. `npm run check`, commit and push.
+3. `git tag -a vx.y.z -m "Accretion x.y.z" && git push origin vx.y.z`
+
+The *Release* workflow builds Windows, macOS and Linux on their own runners, adds `SHA256SUMS.txt` and publishes the GitHub Release with the changelog notes. Local builds: `npm run package` (Windows), `package:mac`, `package:linux` → `dist/<version>/`.
