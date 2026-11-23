@@ -1,0 +1,83 @@
+name: Release
+# Push a tag like v2.2.0 → builds Windows, macOS and Linux on their own runners,
+# computes SHA-256 checksums and publishes a GitHub Release with the CHANGELOG notes.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, platform: win32, arch: x64 }
+          - { os: macos-latest, platform: darwin, arch: arm64 }
+          - { os: ubuntu-latest, platform: linux, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/package.js ${{ matrix.platform }} ${{ matrix.arch }}
+      - name: Archive
+        shell: bash
+        run: |
+          V=$(node -p "require('./package.json').version")
+          N="Accretion-${V}-${{ matrix.platform }}-${{ matrix.arch }}"
+          mkdir -p release
+          cd "dist/$V"
+          case "${{ matrix.platform }}" in
+            darwin) ditto -c -k --sequesterRsrc --keepParent "Accretion-darwin-${{ matrix.arch }}/Accretion.app" "../../release/$N.zip" ;;
+            linux)  tar -czf "../../release/$N.tar.gz" "Accretion-linux-${{ matrix.arch }}" ;;
+            win32)  7z a -tzip "../../release/$N.zip" "Accretion-win32-${{ matrix.arch }}" > /dev/null ;;
+          esac
+          ls -la ../../release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Release notes from CHANGELOG
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" '$0 ~ "^## "v {f=1; next} /^## / && f {exit} f' CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ---
+          **Downloads:** Windows (`win32-x64.zip`), macOS Apple Silicon (`darwin-arm64.zip`), Linux (`linux-x64.tar.gz`). Unzip and run *Accretion*.
+          Builds are not code-signed yet — see the README's *Install* section for the first-launch steps. Verify downloads with `SHA256SUMS.txt`.
+          EOF
+          cat notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Accretion ${GITHUB_REF_NAME}" \
+            --notes-file notes.md \
+            --latest

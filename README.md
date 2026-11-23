@@ -32,14 +32,21 @@ Every note is a star, every folder a constellation, every `[[link]]` a path of l
 
 ## Install
 
-Download the latest build for your system from **[Releases](../../releases)**, unzip it and run *Accretion*.
+Download the latest build from **[Releases](https://github.com/OscarRios-dev/accretion/releases/latest)**:
 
-The binaries are not code-signed yet, so the first launch shows a warning:
+| System | File | Run |
+| --- | --- | --- |
+| Windows 10/11 (x64) | `Accretion-<version>-win32-x64.zip` | Unzip and open `Accretion.exe` |
+| macOS (Apple Silicon) | `Accretion-<version>-darwin-arm64.zip` | Unzip and move `Accretion.app` to *Applications* |
+| Linux (x64) | `Accretion-<version>-linux-x64.tar.gz` | Extract and run `./Accretion` |
+
+The builds are not code-signed yet, so the first launch needs one extra step:
 
 - **Windows:** SmartScreen says "Windows protected your PC". Click *More info*, then *Run anyway*.
-- **macOS:** right-click the app and choose *Open*.
+- **macOS:** right-click the app and choose *Open*. If macOS says the app "is damaged", run `xattr -cr /Applications/Accretion.app` once.
+- **Linux:** if it doesn't start because of the sandbox, run `sudo chown root:root chrome-sandbox && sudo chmod 4755 chrome-sandbox` in the app folder.
 
-SHA-256 checksums are published with each release.
+Every release includes `SHA256SUMS.txt`. To check a download, compare it with `sha256sum <file>` (Linux), `shasum -a 256 <file>` (macOS) or `Get-FileHash <file>` (Windows PowerShell).
 
 ### Build from source
 
