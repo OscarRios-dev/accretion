@@ -43,6 +43,10 @@
     <button id="tl-close" class="x small" data-i18n-aria="Close time travel (Esc)" data-i18n-title="Close time travel (Esc)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
   </div>
 
+  <div id="heatlegend" class="ui needs-data" aria-hidden="true">
+    <span data-i18n="Dormant">Dormant</span><i></i><span data-i18n="Edited today">Edited today</span>
+  </div>
+
   <div class="hintbar ui needs-data out" id="hintbar"><kbd>?</kbd> <span data-i18n="shortcuts">shortcuts</span> · <kbd>Ctrl</kbd>+<span data-i18n="click opens in Obsidian">click opens in Obsidian</span></div>
 
   <nav id="dock" class="ui needs-data" data-i18n-aria="View controls">
@@ -51,7 +55,7 @@
     <button data-a="reset" data-i18n-title="Back to overview (Esc)" data-i18n-aria="Back to overview"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <span class="dsep" aria-hidden="true"></span>
     <button data-a="random" data-i18n-title="Random note (A)" data-i18n-aria="Random note" aria-keyshortcuts="A"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="2.5" y="2.5" width="11" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5.7" cy="5.7" r="1" fill="currentColor"/><circle cx="10.3" cy="10.3" r="1" fill="currentColor"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg></button>
-    <button data-a="color" data-i18n-title="Colour by group (C)" data-i18n-aria="Colour by group" aria-pressed="false" aria-keyshortcuts="C"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5v11M8 2.5a5.5 5.5 0 0 1 0 11" fill="currentColor" fill-opacity=".35" stroke="none"/></svg></button>
+    <button data-a="color" data-i18n-title="Star colour (C)" data-i18n-aria="Star colour" aria-keyshortcuts="C"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5v11M8 2.5a5.5 5.5 0 0 1 0 11" fill="currentColor" fill-opacity=".35" stroke="none"/></svg></button>
     <button data-a="time" data-i18n-title="Time travel (T)" data-i18n-aria="Time travel" aria-keyshortcuts="T"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.2l2.2 1.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <span class="dsep" aria-hidden="true"></span>
     <button data-a="shot" data-i18n-title="Save screenshot (S)" data-i18n-aria="Save screenshot" aria-keyshortcuts="S"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 5.5c0-.6.4-1 1-1h1.8l1-1.5h3.4l1 1.5h1.8c.6 0 1 .4 1 1v6c0 .6-.4 1-1 1h-9c-.6 0-1-.4-1-1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8.5" r="2.1" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
@@ -148,7 +152,14 @@
         </section>
         <section>
           <h3 data-i18n="View">View</h3>
-          <label class="toggle"><input type="checkbox" id="s-color"><span></span><b data-i18n="Colour by group" style="font-weight:400">Colour by group</b></label>
+          <div class="row">
+            <label for="s-colormode" data-i18n="Star colour">Star colour</label>
+            <select id="s-colormode" class="field">
+              <option value="white" data-i18n="White">White</option>
+              <option value="group" data-i18n="By group">By group</option>
+              <option value="heat" data-i18n="Activity heat (recent = hot)">Activity heat (recent = hot)</option>
+            </select>
+          </div>
           <label class="toggle"><input type="checkbox" id="s-rotate"><span></span><b data-i18n="Galaxy rotation" style="font-weight:400">Galaxy rotation</b></label>
           <label class="toggle"><input type="checkbox" id="s-fps"><span></span><b data-i18n="Show FPS" style="font-weight:400">Show FPS</b></label>
           <div class="row">
@@ -185,7 +196,7 @@
         <div><kbd>1</kbd><kbd>2</kbd><kbd>0</kbd><span data-i18n="Neighbourhood depth">Neighbourhood depth</span></div>
         <div><kbd>T</kbd><span data-i18n="Time travel">Time travel</span></div>
         <div><kbd>B</kbd><span data-i18n="Fly to the black hole">Fly to the black hole</span></div>
-        <div><kbd>C</kbd><span data-i18n="Colour by group">Colour by group</span></div>
+        <div><kbd>C</kbd><span data-i18n="Star colour: white · group · heat">Star colour: white · group · heat</span></div>
         <div><kbd>S</kbd><span data-i18n="Save screenshot">Save screenshot</span></div>
         <div><kbd>R</kbd><span data-i18n="Pause / resume rotation">Pause / resume rotation</span></div>
         <div><kbd>H</kbd><span data-i18n="Cinema mode (hide UI)">Cinema mode (hide UI)</span></div>

@@ -244,7 +244,7 @@ const state = {
   data: [],
   selPaths: store.get('sbg.selPaths', null),
   groupBy: store.get('sbg.group', 'folder'),
-  colored: store.get('sbg.colored', true),
+  colorMode: store.get('sbg.colorMode', store.get('sbg.colored', true) ? 'group' : 'white'), // 'white' | 'group' | 'heat'
   showFps: store.get('sbg.fps', false),
   rotating: store.get('sbg.rotating', true),
   quality: store.get('sbg.quality', 'auto'),
@@ -268,15 +268,16 @@ const findById = (id) => (state.model && id ? state.model.byId.get(id) : null);
 // ───────────────────────── note objects ─────────────────────────
 let starPoints = null, ideaPoints = null, linesObj = null, linkObj = null;
 const starMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uHover: { value: -1 }, uSel: { value: -1 }, uScale: { value: 1 }, uColorMix: { value: 0 } },
+  uniforms: { uTime: { value: 0 }, uHover: { value: -1 }, uSel: { value: -1 }, uScale: { value: 1 }, uColorMix: { value: 0 }, uHeatMix: { value: 0 } },
   vertexShader: `
     attribute float aSize, aSeed, aFocus, aIndex;
     attribute vec3 aColor;
-    uniform float uTime, uHover, uSel, uScale;
+    attribute vec4 aHeat; // rgb = temperature colour, a = brightness
+    uniform float uTime, uHover, uSel, uScale, uHeatMix;
     varying float vBright, vSel;
     varying vec3 vCol;
     void main(){
-      vCol = aColor;
+      vCol = mix(aColor, aHeat.rgb, uHeatMix);
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       float tw = 0.88 + 0.12 * sin(uTime * (0.9 + aSeed * 2.0) + aSeed * 40.0);
       vSel = step(abs(aIndex - uSel), 0.5);
@@ -285,7 +286,7 @@ const starMat = new THREE.ShaderMaterial({
       // Unselected stars use a tighter quad: their visible glow ends near the centre.
       gl_PointSize = clamp(s * uScale / -mv.z * mix(0.55, 1.0, vSel), 2.0, mix(24.0, 150.0, vSel));
       // focus 0 = hidden (time travel / filters), small values = dimmed
-      vBright = step(0.02, aFocus) * (0.07 + 0.93 * aFocus) * (1.0 + vHov * 0.6);
+      vBright = step(0.02, aFocus) * (0.07 + 0.93 * aFocus) * (1.0 + vHov * 0.6) * mix(1.0, aHeat.a, uHeatMix);
       gl_Position = projectionMatrix * mv;
     }`,
   fragmentShader: `
@@ -313,9 +314,9 @@ const starMat = new THREE.ShaderMaterial({
   blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
 });
 const ideaMat = new THREE.ShaderMaterial({
-  uniforms: { uScale: { value: 1 }, uColorMix: { value: 0 } },
-  vertexShader: `attribute float aFocus; attribute vec3 aColor; uniform float uScale, uColorMix; varying float vB; varying vec3 vC;
-    void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=clamp(2.6*uScale/-mv.z,1.5,10.); vB=step(0.02,aFocus)*(0.05+0.5*aFocus); vC=mix(vec3(1.),aColor,uColorMix); gl_Position=projectionMatrix*mv; }`,
+  uniforms: { uScale: { value: 1 }, uColorMix: { value: 0 }, uHeatMix: { value: 0 } },
+  vertexShader: `attribute float aFocus; attribute vec3 aColor; attribute vec4 aHeat; uniform float uScale, uColorMix, uHeatMix; varying float vB; varying vec3 vC;
+    void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=clamp(2.6*uScale/-mv.z,1.5,10.); vB=step(0.02,aFocus)*(0.05+0.5*aFocus)*mix(1.,aHeat.a,uHeatMix); vC=mix(vec3(1.),mix(aColor,aHeat.rgb,uHeatMix),uColorMix); gl_Position=projectionMatrix*mv; }`,
   fragmentShader: `varying float vB; varying vec3 vC; void main(){ if (vB<=0.) discard; float d=length(gl_PointCoord-.5); gl_FragColor=vec4(vC*vB*exp(-d*d*40.),1.); }`,
   blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
 });
@@ -328,20 +329,37 @@ const linkMat = new THREE.ShaderMaterial({
 });
 const linesMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 
-let focusCur = null, focusTarget = null, ideaParent = null, ideaFocus = null;
+let focusCur = null, focusTarget = null, ideaParent = null, ideaFocus = null, basePos = null;
+
+// "Accretion heat": like the disc, what was touched recently burns white-hot and what is dormant
+// cools to a dim red. t = 1 today … 0 after a year (log scale, so recent weeks are well separated).
+const HEAT_STOPS = [[0, [0.5, 0.13, 0.08]], [0.3, [0.92, 0.36, 0.13]], [0.6, [1.0, 0.66, 0.32]], [0.85, [1.0, 0.9, 0.74]], [1, [0.9, 0.94, 1.0]]];
+function heatOf(mtime, now = Date.now()) {
+  const days = Math.max(0, (now - mtime) / DAY);
+  const tt = Math.max(0, Math.min(1, 1 - Math.log1p(days) / Math.log1p(365)));
+  let k = 1;
+  while (k < HEAT_STOPS.length - 1 && tt > HEAT_STOPS[k][0]) k++;
+  const [t0, c0] = HEAT_STOPS[k - 1], [t1, c1] = HEAT_STOPS[k];
+  const f = (tt - t0) / (t1 - t0 || 1);
+  return [c0[0] + (c1[0] - c0[0]) * f, c0[1] + (c1[1] - c0[1]) * f, c0[2] + (c1[2] - c0[2]) * f, 0.42 + 0.75 * tt];
+}
 
 function buildObjects() {
   const M = state.model;
   for (const o of [starPoints, ideaPoints, linesObj, linkObj]) if (o) { galaxy.remove(o); o.geometry.dispose(); }
   linkObj = null;
   const N = M.notes.length;
-  const pos = new Float32Array(N * 3), size = new Float32Array(N), seed = new Float32Array(N), idx = new Float32Array(N), col = new Float32Array(N * 3);
+  const pos = new Float32Array(N * 3), size = new Float32Array(N), seed = new Float32Array(N), idx = new Float32Array(N), col = new Float32Array(N * 3), heat = new Float32Array(N * 4);
   focusCur = new Float32Array(N).fill(1);
   focusTarget = new Float32Array(N).fill(1);
-  M.notes.forEach((n, i) => { n.pos.toArray(pos, i * 3); size[i] = n.size; seed[i] = n.seed; idx[i] = i; n.c.color.toArray(col, i * 3); });
+  const now = Date.now();
+  M.notes.forEach((n, i) => { n.pos.toArray(pos, i * 3); size[i] = n.size; seed[i] = n.seed; idx[i] = i; n.c.color.toArray(col, i * 3); n.heat = heatOf(n.mtime, now); heat.set(n.heat, i * 4); });
+  basePos = pos.slice();
+  arrivals.clear();
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aHeat', new THREE.BufferAttribute(heat, 4));
   g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
   g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
   g.setAttribute('aIndex', new THREE.BufferAttribute(idx, 1));
@@ -351,7 +369,7 @@ function buildObjects() {
   galaxy.add(starPoints);
 
   // Ideas (headings of each note) as satellite stars.
-  const ip = [], par = [], icol = [];
+  const ip = [], par = [], icol = [], iheat = [];
   const lp = [], lc = [];
   const seg = (a, b, k) => { lp.push(a.x, a.y, a.z, b.x, b.y, b.z); lc.push(k, k, k, k, k, k); };
   for (const n of M.notes) {
@@ -362,6 +380,7 @@ function buildObjects() {
       const p = n.pos.clone().add(new THREE.Vector3(Math.cos(a) * d, gauss(r) * 3, Math.sin(a) * d));
       ip.push(p.x, p.y, p.z);
       icol.push(n.c.color.r, n.c.color.g, n.c.color.b);
+      iheat.push(...n.heat);
       par.push(n.index);
       seg(n.pos, p, 0.05);
     }
@@ -372,6 +391,7 @@ function buildObjects() {
   ig.setAttribute('position', new THREE.Float32BufferAttribute(ip, 3));
   ig.setAttribute('aFocus', new THREE.BufferAttribute(ideaFocus, 1));
   ig.setAttribute('aColor', new THREE.Float32BufferAttribute(icol, 3));
+  ig.setAttribute('aHeat', new THREE.Float32BufferAttribute(iheat, 4));
   ideaPoints = new THREE.Points(ig, ideaMat);
   ideaPoints.frustumCulled = false;
   galaxy.add(ideaPoints);
@@ -580,7 +600,8 @@ function zoom(f) {
 
 // ───────────────────────── focus (what is bright, dim or hidden) ─────────────────────────
 // One function decides every star's brightness from selection, group focus, filters and time travel.
-let filterMatch = null; // Set of notes matching the filter, or null when no filter is active
+let filterMatch = null;
+let lastTlAt = null; // Set of notes matching the filter, or null when no filter is active
 function filterActive() {
   const f = state.filter;
   return !!(f.query || f.tags.length || f.hidden.length || f.orphans || f.days);
@@ -605,14 +626,18 @@ function applyFocus() {
   const nb = sel ? neighbourhood(sel, state.depth) : null;
   const tl = state.timeline && state.timeline.on ? state.timeline.at : null;
   const created = state.stats && state.stats.created;
+  const forward = tl != null && lastTlAt != null && tl > lastTlAt && !reducedMotion.matches;
+  lastTlAt = tl;
   M.notes.forEach((n, i) => {
     let f = 1;
     if (tl != null && created && created[i] > tl) f = 0;
     else if (filterMatch && !filterMatch.has(n)) f = state.filter.hidden.includes(n.c.key) ? 0 : 0.06;
     else if (nb) f = nb.has(n) ? 1 : n.c === sel.c ? 0.3 : 0.1;
     else if (fc) f = n.c === fc ? 1 : 0.15;
+    if (forward && f > 0 && focusTarget[i] === 0 && !arrivals.has(i)) arrivals.set(i, time);
     focusTarget[i] = f;
   });
+  if (tl == null) clearArrivals();
   // A group whose stars are all hidden (time travel, hidden groups) also hides its label.
   for (const c of M.consts) c.hidden = c.notes.every((n) => focusTarget[n.index] === 0);
   buildLinkLines(nb, sel);
@@ -861,16 +886,55 @@ function setRotating(on) {
   b.setAttribute('aria-label', on ? t('Pause rotation (R)') : t('Resume rotation (R)'));
   $('#s-rotate').checked = on;
 }
-function setColored(on) {
-  state.colored = on;
-  store.set('sbg.colored', on);
-  document.body.classList.toggle('colored', on);
-  $('#s-color').checked = on;
+const COLOR_MODES = ['white', 'group', 'heat'];
+const colorModeLabel = (m) => ({ white: t('Colour: white'), group: t('Colour: by group'), heat: t('Colour: activity heat') }[m]);
+function setColorMode(m) {
+  if (!COLOR_MODES.includes(m)) m = 'group';
+  state.colorMode = m;
+  store.set('sbg.colorMode', m);
+  document.body.classList.toggle('colored', m === 'group');
+  document.body.classList.toggle('heat', m === 'heat');
+  $('#s-colormode').value = m;
   const b = $('#dock [data-a=color]');
-  b.classList.toggle('on', on);
-  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.classList.toggle('on', m !== 'white');
+  b.dataset.mode = m;
+  b.title = `${colorModeLabel(m)} (C)`;
+  b.setAttribute('aria-label', colorModeLabel(m));
 }
-let colorMix = 0;
+const cycleColorMode = () => {
+  const m = COLOR_MODES[(COLOR_MODES.indexOf(state.colorMode) + 1) % COLOR_MODES.length];
+  setColorMode(m);
+  toast(colorModeLabel(m));
+};
+let colorMix = 0, heatMix = 0;
+
+// ── accretion: during time travel, new notes spiral in from the outer disc ──
+const arrivals = new Map(); // note index -> start time (s)
+const ARRIVAL_S = 1.6;
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+function stepArrivals() {
+  if (!arrivals.size || !starPoints) return;
+  const attr = starPoints.geometry.attributes.position;
+  const a = attr.array;
+  for (const [i, t0] of arrivals) {
+    const k = Math.min(1, (time - t0) / ARRIVAL_S);
+    const bx = basePos[i * 3], by = basePos[i * 3 + 1], bz = basePos[i * 3 + 2];
+    if (k >= 1) { a[i * 3] = bx; a[i * 3 + 1] = by; a[i * 3 + 2] = bz; arrivals.delete(i); continue; }
+    const e = 1 - easeOut(k); // 1 → 0
+    const r = Math.hypot(bx, bz) * (1 + 0.9 * e);
+    const ang = Math.atan2(bz, bx) - 1.8 * e; // falls in along a spiral, following the disc's rotation
+    a[i * 3] = Math.cos(ang) * r;
+    a[i * 3 + 1] = by * (1 - e) + 40 * e * Math.sin(i);
+    a[i * 3 + 2] = Math.sin(ang) * r;
+  }
+  attr.needsUpdate = true;
+}
+function clearArrivals() {
+  if (!arrivals.size || !starPoints) return;
+  starPoints.geometry.attributes.position.array.set(basePos);
+  starPoints.geometry.attributes.position.needsUpdate = true;
+  arrivals.clear();
+}
 function randomNote() {
   if (!state.model || !state.model.notes.length) return;
   const pool = state.model.notes.filter((n) => n !== state.selected && focusCur[n.index] > 0.05);
@@ -895,7 +959,7 @@ $('#dock').addEventListener('click', (e) => {
   else if (a === 'pause') setRotating(!state.rotating);
   else if (a === 'full') window.brain.toggleFullscreen();
   else if (a === 'random') randomNote();
-  else if (a === 'color') setColored(!state.colored);
+  else if (a === 'color') cycleColorMode();
   else if (a === 'time') toggleTimeline();
   else if (a === 'shot') screenshot();
   else if (a === 'help') openSheet('help');
@@ -942,7 +1006,7 @@ $('#tl-play').addEventListener('click', () => {
   $('#tl-play').textContent = '❚❚';
   $('#tl-play').setAttribute('aria-label', t('Pause'));
   tlPlay = setInterval(() => {
-    r.value = Math.min(1000, +r.value + 6);
+    r.value = Math.min(1000, +r.value + 3);
     updateTimeline();
     if (+r.value >= 1000) stopPlay();
   }, 33);
@@ -1213,7 +1277,7 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Home') resetView();
   else if (k === 'b') flyToBlackHole();
   else if (k === 'r') setRotating(!state.rotating);
-  else if (k === 'c') setColored(!state.colored);
+  else if (k === 'c') cycleColorMode();
   else if (k === 'a') randomNote();
   else if (k === 'p') openModal('pages');
   else if (k === 's') screenshot();
@@ -1275,7 +1339,7 @@ function vaultRow(v, { suggestion = false } = {}) {
 }
 async function renderSettings() {
   $('#s-name').value = state.profile.name;
-  $('#s-color').checked = state.colored;
+  $('#s-colormode').value = state.colorMode;
   $('#s-rotate').checked = state.rotating;
   $('#s-fps').checked = state.showFps;
   $('#s-quality').value = state.quality;
@@ -1327,7 +1391,7 @@ async function saveName() {
 }
 $('#s-name-save').addEventListener('click', saveName);
 $('#s-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveName(); e.stopPropagation(); });
-$('#s-color').addEventListener('change', (e) => setColored(e.target.checked));
+$('#s-colormode').addEventListener('change', (e) => setColorMode(e.target.value));
 $('#s-rotate').addEventListener('change', (e) => setRotating(e.target.checked));
 $('#s-fps').addEventListener('change', (e) => { state.showFps = e.target.checked; store.set('sbg.fps', state.showFps); updateSub(); });
 $('#s-quality').addEventListener('change', (e) => { state.quality = e.target.value; store.set('sbg.quality', state.quality); applyQualityPreset(); });
@@ -1343,7 +1407,7 @@ function switchLang() {
   setLang(resolveLang(state.profile.lang));
   applyI18n();
   setRotating(state.rotating);
-  setColored(state.colored);
+  setColorMode(state.colorMode);
   if (state.model) { buildConstLabels(); lastCam.force = true; }
   updateSub();
   renderChipbar();
@@ -1588,9 +1652,14 @@ function frame() {
       lastCam.force = true;
     }
   }
-  colorMix += ((state.colored ? 1 : 0) - colorMix) * Math.min(1, dt * 3);
+  const kMix = Math.min(1, dt * 3);
+  colorMix += ((state.colorMode === 'white' ? 0 : 1) - colorMix) * kMix;
+  heatMix += ((state.colorMode === 'heat' ? 1 : 0) - heatMix) * kMix;
   starMat.uniforms.uColorMix.value = colorMix;
   ideaMat.uniforms.uColorMix.value = colorMix;
+  starMat.uniforms.uHeatMix.value = heatMix;
+  ideaMat.uniforms.uHeatMix.value = heatMix;
+  stepArrivals();
   if (linkObj) linkMat.uniforms.uFade.value = Math.min(1, linkMat.uniforms.uFade.value + dt * 1.2);
   if (linesObj) linesMat.opacity = state.selected || state.focusedConst || filterMatch ? 0.45 : 1;
   starMat.uniforms.uTime.value = time;
@@ -1624,7 +1693,7 @@ function intro() {
   resize();
   applyQualityPreset();
   setRotating(state.rotating);
-  setColored(state.colored);
+  setColorMode(state.colorMode);
   const shot = await window.brain.shotMode();
   await reload(false);
   document.body.classList.remove('booting');
@@ -1652,6 +1721,15 @@ function runShot(shot) {
   else if (shot === 'home' || shot === 'stats' || shot === 'pages' || shot === 'filters') openModal(shot);
   else if (shot === 'search') { openModal('home', true); q.value = state.model.notes[0].title.split(/\s+/)[0]; renderModal(); }
   else if (shot === 'filter') { setFilter({ orphans: true }); }
+  else if (shot === 'heat') {
+    setColorMode('heat');
+    const c = [...state.model.consts].sort((a, b) => b.notes.length - a.notes.length)[0];
+    const w = worldOf(c.center);
+    controls.target.copy(w);
+    camera.position.copy(w).add(new THREE.Vector3(0, c.radius * 3.2, c.radius * 1.2 + 40));
+    state.focusedConst = c; applyFocus(); setNoteLabels(c.notes, null); updateBack();
+  }
+  else if (shot === 'fall') { setColorMode('heat'); toggleTimeline(true); $('#tl-range').value = 0; updateTimeline(); setTimeout(() => $('#tl-play').click(), 1500); }
   else if (shot === 'timeline') { toggleTimeline(true); $('#tl-range').value = 550; updateTimeline(); }
   else if (shot === 'audit') {
     // Security self-test: open the most-linked note and dump what actually reached the DOM.

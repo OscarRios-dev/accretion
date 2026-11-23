@@ -33,7 +33,7 @@ Try your changes against the bundled demo vault: `npm run demo`.
 
 - **Never write to the user's vault.** The app is read-only by design.
 - Treat note content as untrusted (see `SECURITY.md`). Escape with `esc()` when building HTML; markdown goes through `renderMd()` which sanitizes.
-- Keep the look: near-black, glass panels, 1px borders, one periwinkle accent (`--accent`). Use the CSS tokens in `app/style.css` instead of new colors or font sizes.
+- Keep the look: near-black, glass panels, 1px borders, one warm amber accent (`--accent`, the colour of the accretion disc). Use the CSS tokens in `app/style.css` instead of new colors or font sizes.
 - Write UI strings in English inside `t('…')` and add the Spanish translation to `src/locales/es.mjs`.
 - Statistics must be honest: label exactly what is measured and give every chart an empty state.
 - Keep dependencies minimal; there is no framework on purpose.

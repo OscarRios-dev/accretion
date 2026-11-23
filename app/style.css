@@ -1,4 +1,4 @@
-/* Accretion — near-black, glass panels, 1px hairlines, one periwinkle accent.
+/* Accretion — near-black, glass panels, 1px hairlines, one warm amber accent (the accretion disc).
    Use these tokens instead of new colors or font sizes. */
 :root {
   --ink: #ececee;
@@ -12,10 +12,10 @@
   --card: rgba(22, 22, 25, 0.92);
   --sheet: rgba(18, 18, 21, 0.95);
   --hi: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --accent: #b9c4ff;
-  --accent-ink: #e6eaff;
-  --accent-bg: rgba(185, 196, 255, 0.12);
-  --accent-line: rgba(185, 196, 255, 0.3);
+  --accent: #f4c38c;
+  --accent-ink: #ffead2;
+  --accent-bg: rgba(244, 195, 140, 0.12);
+  --accent-line: rgba(244, 195, 140, 0.3);
   /* Soft data hues (desaturated so they sit with the accent). */
   --orange: #e6a77f;
   --green: #8fd2ae;
@@ -146,7 +146,7 @@ body.no-data .needs-data, body.booting .needs-data { opacity: 0; pointer-events:
 .btn.icon { width: 30px; padding: 0; }
 .btn.on { color: var(--accent-ink); border-color: var(--accent-line); background: var(--accent-bg); }
 .btn.primary { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-ink); }
-.btn.primary:hover { background: rgba(185, 196, 255, .2); }
+.btn.primary:hover { background: rgba(244, 195, 140, .2); }
 .btn.big { height: 40px; padding: 0 22px; font-size: var(--t-m); border-radius: 11px; }
 .btn.wide { width: 100%; margin-top: 10px; height: 36px; }
 .btn.ghost { background: none; border-color: transparent; color: var(--dim); }
@@ -355,20 +355,20 @@ select.field { flex: none; width: 170px; }
 .field:focus { border-color: var(--accent-line); }
 .vlist { display: flex; flex-direction: column; gap: 6px; }
 .vault { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.02); }
-.vault .vi { width: 30px; height: 30px; flex: none; border-radius: 8px; background: radial-gradient(circle at 50% 50%, #000 30%, rgba(185, 196, 255, .55) 34%, rgba(185, 196, 255, 0) 64%), rgba(255,255,255,.04); }
+.vault .vi { width: 30px; height: 30px; flex: none; border-radius: 8px; background: radial-gradient(circle at 50% 50%, #000 30%, rgba(244, 195, 140, .55) 34%, rgba(244, 195, 140, 0) 64%), rgba(255,255,255,.04); }
 .vault .vt { flex: 1; min-width: 0; }
 .vault .vt b { display: block; font-size: var(--t-s); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vault .vt span { display: block; font-size: var(--t-xs); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vault.missing .vt b { color: var(--red); }
 .vault .btn { height: 26px; padding: 0 9px; font-size: var(--t-xs); }
 .vault.sugg { border-style: dashed; cursor: pointer; transition: .15s; }
-.vault.sugg:hover { border-color: var(--accent-line); background: rgba(185, 196, 255, .05); }
+.vault.sugg:hover { border-color: var(--accent-line); background: rgba(244, 195, 140, .05); }
 .sugg-cap { font-size: var(--t-xs); letter-spacing: 1px; text-transform: uppercase; color: var(--faint); margin: 14px 0 6px; }
 .toggle { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: var(--t-s); color: var(--soft); cursor: pointer; position: relative; }
 .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .toggle span { width: 30px; height: 17px; border-radius: 999px; background: rgba(255,255,255,.1); position: relative; transition: .2s; flex: none; }
 .toggle span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #9a9aa2; transition: .2s; }
-.toggle input:checked + span { background: rgba(185, 196, 255, .45); }
+.toggle input:checked + span { background: rgba(244, 195, 140, .45); }
 .toggle input:checked + span::after { left: 15px; background: #fff; }
 .toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .keys { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; padding-bottom: 20px; }
@@ -393,7 +393,7 @@ select.field { flex: none; width: 170px; }
 .w-missing[hidden] { display: none; }
 .w-lang { position: absolute; top: 14px; right: 16px; }
 
-#dropzone { position: fixed; inset: 10px; z-index: 50; border-radius: 22px; border: 2px dashed rgba(185, 196, 255, .6); background: rgba(10, 12, 24, .7); display: grid; place-items: center; font-size: 15px; color: var(--accent-ink); opacity: 0; pointer-events: none; transition: opacity .15s; }
+#dropzone { position: fixed; inset: 10px; z-index: 50; border-radius: 22px; border: 2px dashed rgba(244, 195, 140, .6); background: rgba(20, 14, 8, .72); display: grid; place-items: center; font-size: 15px; color: var(--accent-ink); opacity: 0; pointer-events: none; transition: opacity .15s; }
 body.dragging #dropzone { opacity: 1; }
 #loading { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 9px; padding: 7px 14px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font-size: var(--t-s); color: var(--soft); opacity: 0; pointer-events: none; transition: opacity .25s; }
 body.loading #loading { opacity: 1; }
@@ -430,3 +430,11 @@ body.loading #loading { opacity: 1; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .w-orb { animation: none; }
 }
+
+/* ── accretion heat legend (colour mode "heat") ── */
+#heatlegend { position: fixed; left: 22px; bottom: 30px; z-index: 9; display: flex; align-items: center; gap: 8px; font-size: var(--t-xs); color: var(--dim);
+  opacity: 0; pointer-events: none; transition: opacity .5s; text-shadow: 0 1px 6px #000; }
+#heatlegend i { width: 120px; height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, rgb(128, 33, 20), rgb(235, 92, 33) 30%, rgb(255, 168, 82) 60%, rgb(255, 230, 189) 85%, rgb(230, 240, 255)); }
+body.heat #heatlegend { opacity: 1; }
+body.cine #heatlegend { opacity: 0; }

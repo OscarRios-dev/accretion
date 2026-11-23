@@ -220,7 +220,7 @@ function createWindow() {
     titleBarStyle: 'hidden',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 14, y: 12 } }
-      : { titleBarOverlay: { color: '#00000000', symbolColor: '#b9c4ff', height: 34 } }),
+      : { titleBarOverlay: { color: '#00000000', symbolColor: '#f4c38c', height: 34 } }),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
