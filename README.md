@@ -5,6 +5,8 @@ Every note is a star, every folder a constellation, every `[[link]]` a path of l
 
 ![The galaxy overview](docs/galaxy.png)
 
+![The black hole up close: the far side of the disc bends over the shadow](docs/blackhole.png)
+
 <p align="center">
   <img src="docs/note.png" width="49%" alt="A note with its neighbourhood highlighted">
   <img src="docs/stats.png" width="49%" alt="The statistics tab">
