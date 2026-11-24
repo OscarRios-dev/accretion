@@ -30,10 +30,13 @@
     </button>
   </div>
 
-  <div id="greet" class="ui" aria-live="polite">
-    <h2 id="g-title"></h2>
-    <p id="g-since"></p>
-    <p id="g-msg"></p>
+  <div id="greet" class="ui">
+    <p id="g-sr" class="sr-only" aria-live="polite"></p>
+    <div aria-hidden="true">
+      <h2 id="g-title"></h2>
+      <p id="g-since"></p>
+      <p id="g-msg"></p>
+    </div>
   </div>
 
   <div id="timeline" class="ui" hidden role="group" data-i18n-aria="Time travel">
@@ -171,6 +174,14 @@
               <option value="low" data-i18n="Low (laptops)">Low (laptops)</option>
             </select>
           </div>
+          <div class="row">
+            <label for="s-motion" data-i18n="Motion">Motion</label>
+            <select id="s-motion" class="field">
+              <option value="auto" data-i18n="Automatic">Automatic</option>
+              <option value="full" data-i18n="Full">Full</option>
+              <option value="reduced" data-i18n="Reduced">Reduced</option>
+            </select>
+          </div>
         </section>
         <section>
           <p class="hint" data-i18n="Accretion is read-only and works offline: it never modifies your notes and never sends them anywhere.">Accretion is read-only and works offline: it never modifies your notes and never sends them anywhere.</p>
@@ -187,6 +198,7 @@
         <button class="x" data-close data-i18n-title="Close (Esc)" data-i18n-aria="Close"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
       </header>
       <div class="keys">
+        <div><kbd data-i18n="Space">Space</kbd><span data-i18n="Home and statistics">Home and statistics</span></div>
         <div><kbd>Ctrl</kbd><kbd>K</kbd><span data-i18n="Search every note">Search every note</span></div>
         <div><kbd>Shift</kbd><kbd>Enter</kbd><span data-i18n="Highlight results on the map">Highlight results on the map</span></div>
         <div><kbd>P</kbd><span data-i18n="All notes by group">All notes by group</span></div>

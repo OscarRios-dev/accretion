@@ -21,9 +21,14 @@ const LENS_R = RS * 14;           // sphere where light bends
 const DEFAULT_CAM = new THREE.Vector3(0, 1430, 470);
 const MAX_NOTE_LABELS = 150;      // DOM labels drawn at once (highest degree first)
 const $ = (s) => document.querySelector(s);
+// Motion: 'full', 'soft' or 'reduced'. Windows reports "reduce" whenever its animation effects are off, which many
+// people do for speed, so on 'auto' that only softens motion (shorter flights). 'reduced' in settings removes it.
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const ROT_SPEED = () => (reducedMotion.matches ? 0 : 0.008);
-const flightDur = (d) => (reducedMotion.matches ? 0.01 : d);
+let motionPref = store.get('sbg.motion', 'auto'); // 'auto' | 'full' | 'reduced'
+const motion = () => (motionPref === 'full' ? 'full' : motionPref === 'reduced' ? 'reduced' : reducedMotion.matches ? 'soft' : 'full');
+const still = () => motion() === 'reduced';
+const ROT_SPEED = () => (still() ? 0 : 0.008);
+const flightDur = (d) => { const m = motion(); return m === 'reduced' ? 0.01 : m === 'soft' ? Math.max(0.45, d * 0.6) : d; };
 
 // ───────────────────────── renderer & scene ─────────────────────────
 const canvas = $('#c');
@@ -41,23 +46,28 @@ const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.rotateSpeed = 0.5;
-controls.zoomSpeed = 0.8;
+controls.enableZoom = false; // our own eased zoom (see stepZoom); OrbitControls' wheel zoom jumps per notch
 controls.minDistance = 10;
 controls.maxDistance = 4200;
 
 const galaxy = new THREE.Group();
 scene.add(galaxy);
 
-// Accretion disc almost edge-on from the main view.
+// Accretion disc in the galaxy's own plane, tilted a few degrees like a real disc. It used to stand edge-on to the
+// default camera (perpendicular to the galaxy), which looked right from one angle only. V = U × N makes the disc's
+// swirl and its Doppler-bright side turn the same way as the galaxy.
 const diskBasis = (() => {
-  const d = DEFAULT_CAM.clone().negate().normalize();
+  const tilt = THREE.MathUtils.degToRad(3);
+  const N = new THREE.Vector3(0, Math.cos(tilt), -Math.sin(tilt));
   const U = new THREE.Vector3(1, 0, 0);
-  const N0 = new THREE.Vector3().crossVectors(U, d).normalize();
-  const tilt = THREE.MathUtils.degToRad(7);
-  const N = N0.multiplyScalar(Math.cos(tilt)).addScaledVector(d, -Math.sin(tilt)).normalize();
-  const V = new THREE.Vector3().crossVectors(N, U).normalize();
+  const V = new THREE.Vector3().crossVectors(U, N).normalize();
   return { N, U, V };
 })();
+// Close-up of the black hole (B): a low angle over the disc, where the lensed far side arches over the shadow.
+const bhView = () => new THREE.Vector3()
+  .addScaledVector(diskBasis.N, Math.sin(THREE.MathUtils.degToRad(11)))
+  .addScaledVector(diskBasis.V, Math.cos(THREE.MathUtils.degToRad(11)))
+  .multiplyScalar(RS * 17);
 
 // ───────────────────────── background sky (cubemap) ─────────────────────────
 function buildSky() {
@@ -455,10 +465,6 @@ function buildLinkLines(set, center) {
 // ───────────────────────── labels ─────────────────────────
 const labelsEl = $('#labels');
 let constLabels = [], noteLabels = [];
-const homeLabel = document.createElement('button');
-homeLabel.className = 'hlabel';
-homeLabel.addEventListener('click', () => flyToBlackHole());
-labelsEl.appendChild(homeLabel);
 
 function buildConstLabels() {
   constLabels.forEach((l) => l.el.remove());
@@ -505,16 +511,7 @@ function updateLabels() {
   if (!moved) return;
   lastCam.p.copy(camera.position); lastCam.q.copy(camera.quaternion); lastCam.rot = galaxy.rotation.y; lastCam.w = innerWidth; lastCam.h = innerHeight; lastCam.force = false;
 
-  const focal = innerHeight / (2 * Math.tan((camera.fov * Math.PI) / 360));
-  const hs = toScreen(new THREE.Vector3());
-  const dist = camera.position.length();
-  const off = (RS * 4.2 * focal) / dist;
-  const showHome = hs.vis && dist > RS * 14 && state.data.length > 0;
-  homeLabel.style.opacity = showHome ? 1 : 0;
-  homeLabel.style.pointerEvents = showHome ? 'auto' : 'none';
-  homeLabel.tabIndex = showHome ? 0 : -1;
-  place(homeLabel, hs.x - (homeLabel.offsetWidth || 90) / 2, hs.y + off);
-  document.body.classList.toggle('zoomed', dist < 900);
+  document.body.classList.toggle('zoomed', camera.position.length() < 900);
 
   const sel = state.selected;
   for (const l of constLabels) {
@@ -551,7 +548,7 @@ function updateLabels() {
 
 // ───────────────────────── camera ─────────────────────────
 // Camera targets are described by ids, not object refs, so they survive rebuilds.
-let flight = null, follow = null;
+let flight = null, follow = null, zoomGoal = null;
 function targetPos(tg) {
   if (!tg || tg.type === 'origin') return new THREE.Vector3();
   if (tg.type === 'note') { const n = findById(tg.id); return n ? worldOf(n.pos) : null; }
@@ -562,6 +559,7 @@ function targetPos(tg) {
 function flyTo({ target, offset, dur = 2.2, follow: f = false }) {
   flight = { t: 0, dur: flightDur(dur), fromPos: camera.position.clone(), fromTgt: controls.target.clone(), target, offset, f };
   follow = null;
+  zoomGoal = null;
   controls.enabled = false;
 }
 function stepFlight(dt) {
@@ -592,11 +590,29 @@ function viewOffset(worldTarget, dist) {
   if (dir.y < 0.75) { dir.y = 0.75; dir.normalize(); }
   return dir.multiplyScalar(dist);
 }
+// Smooth zoom: the wheel and +/− move a goal distance; every frame the camera glides a fraction of the way there,
+// so fast scrolling piles up into one continuous, eased move instead of a jump per notch.
 function zoom(f) {
-  const tgt = follow ? follow.target : { type: 'point', p: controls.target.clone() };
-  const off = camera.position.clone().sub(controls.target).multiplyScalar(f);
-  flyTo({ target: tgt, offset: off, dur: 0.6, follow: !!follow });
+  if (flight) return;
+  const cur = zoomGoal != null ? zoomGoal : camera.position.distanceTo(controls.target);
+  const min = Math.max(controls.minDistance, RS * 2.4 - controls.target.length());
+  zoomGoal = THREE.MathUtils.clamp(cur * f, min, controls.maxDistance);
 }
+const _z = new THREE.Vector3();
+function stepZoom(dt) {
+  if (zoomGoal == null || flight) return;
+  _z.copy(camera.position).sub(controls.target);
+  const d = _z.length();
+  const nd = still() ? zoomGoal : d + (zoomGoal - d) * (1 - Math.exp(-dt * 8));
+  camera.position.copy(controls.target).addScaledVector(_z, nd / d);
+  if (Math.abs(nd - zoomGoal) < zoomGoal * 0.002) zoomGoal = null;
+}
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  hideGreet();
+  const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1);
+  zoom(Math.exp(THREE.MathUtils.clamp(px, -300, 300) * 0.0011));
+}, { passive: false });
 
 // ───────────────────────── focus (what is bright, dim or hidden) ─────────────────────────
 // One function decides every star's brightness from selection, group focus, filters and time travel.
@@ -626,7 +642,7 @@ function applyFocus() {
   const nb = sel ? neighbourhood(sel, state.depth) : null;
   const tl = state.timeline && state.timeline.on ? state.timeline.at : null;
   const created = state.stats && state.stats.created;
-  const forward = tl != null && lastTlAt != null && tl > lastTlAt && !reducedMotion.matches;
+  const forward = tl != null && lastTlAt != null && tl > lastTlAt && motion() === 'full';
   lastTlAt = tl;
   M.notes.forEach((n, i) => {
     let f = 1;
@@ -658,7 +674,7 @@ function focusConst(c) {
   setNoteLabels(c.notes, null);
   updateBack();
   const tg = { type: 'const', id: c.key };
-  flyTo({ target: tg, offset: viewOffset(targetPos(tg), c.radius * 4.2 + 160), dur: 2.2, follow: true });
+  flyTo({ target: tg, offset: viewOffset(targetPos(tg), c.radius * 4.2 + 160), dur: 1.5, follow: true });
 }
 async function selectNote(n, { fly = true } = {}) {
   state.selected = n;
@@ -693,7 +709,7 @@ function resetView() {
 function flyToBlackHole() {
   closePanel(false);
   clearSelection();
-  flyTo({ target: { type: 'origin' }, offset: DEFAULT_CAM.clone().setLength(RS * 15), dur: 3.0 });
+  flyTo({ target: { type: 'origin' }, offset: bhView(), dur: 3.0 });
 }
 $('#back').addEventListener('click', () => {
   if (state.selected && state.focusedConst) focusConst(state.focusedConst);
@@ -879,8 +895,9 @@ function updateTooltip() {
 function setRotating(on) {
   state.rotating = on;
   store.set('sbg.rotating', on);
-  $('#ico-pause').hidden = !on;
-  $('#ico-play').hidden = on;
+  // SVG elements have no .hidden property: toggle the attribute itself or the icon never changes.
+  $('#ico-pause').toggleAttribute('hidden', !on);
+  $('#ico-play').toggleAttribute('hidden', on);
   const b = $('#dock [data-a=pause]');
   b.setAttribute('aria-pressed', on ? 'false' : 'true');
   b.setAttribute('aria-label', on ? t('Pause rotation (R)') : t('Resume rotation (R)'));
@@ -1224,22 +1241,52 @@ function filterClick(el) {
 }
 
 // ───────────────────────── greeting ─────────────────────────
-function showGreet() {
+// The greeting types itself out line by line, at an even pace, like someone writing it.
+let greetTimers = [];
+const greetLater = (fn, ms) => greetTimers.push(setTimeout(fn, ms));
+function typeLines(lines, done) {
+  let li = 0, ci = 0;
+  const tick = () => {
+    const L = lines[li];
+    if (!L) { done(); return; }
+    ci++;
+    L.el.textContent = L.text.slice(0, ci);
+    L.el.classList.add('typing');
+    if (ci < L.text.length) { greetLater(tick, L.ms * (/[.,;:·]/.test(L.text[ci - 1]) ? 6 : 1)); return; }
+    li++; ci = 0;
+    greetLater(() => { L.el.classList.remove('typing'); tick(); }, L.after);
+  };
+  tick();
+}
+function showGreet({ instant = false } = {}) {
+  greetTimers.forEach(clearTimeout);
+  greetTimers = [];
   const h = new Date().getHours();
   const hello = h < 12 ? t('Good morning') : h < 20 ? t('Good afternoon') : t('Good evening');
-  $('#g-title').textContent = state.profile.name ? `${hello}, ${state.profile.name}.` : `${hello}.`;
+  const title = state.profile.name ? `${hello}, ${state.profile.name}.` : `${hello}.`;
   const last = store.get('sbg.lastVisit', 0);
   const changed = last ? state.model.notes.filter((n) => n.mtime > last).length : 0;
-  $('#g-since').textContent = last ? t('Since your last visit · {when}', { when: ago(last) }) : t('First visit');
-  $('#g-msg').textContent = !last
+  const since = last ? t('Since your last visit · {when}', { when: ago(last) }) : t('First visit');
+  const msg = !last
     ? t('Every star is one of your notes; every group, a region of the galaxy. Press ? for shortcuts.')
     : changed ? tn(changed, '{n} note changed while you were away.', '{n} notes changed while you were away.')
       : t('Nothing changed while you were away; the map is as you left it.');
   store.set('sbg.lastVisit', Date.now());
-  setTimeout(hideGreet, 12000);
-  const hint = $('#hintbar');
-  hint.classList.remove('out');
-  setTimeout(() => hint.classList.add('out'), 9000);
+  $('#g-sr').textContent = `${title} ${since}. ${msg}`; // screen readers get it once, not letter by letter
+  const lines = [
+    { el: $('#g-title'), text: title, ms: 62, after: 420 },
+    { el: $('#g-since'), text: since, ms: 24, after: 300 },
+    { el: $('#g-msg'), text: msg, ms: 20, after: 1400 },
+  ];
+  const finish = () => {
+    greetLater(hideGreet, 9000);
+    const hint = $('#hintbar');
+    hint.classList.remove('out');
+    greetLater(() => hint.classList.add('out'), 7000);
+  };
+  if (instant || still()) { for (const L of lines) L.el.textContent = L.text; finish(); return; }
+  for (const L of lines) L.el.textContent = '';
+  greetLater(() => typeLines(lines, finish), 700);
 }
 function hideGreet() { $('#greet').classList.add('out'); }
 
@@ -1267,6 +1314,13 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (!hasData || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === ' ') {
+    if (e.defaultPrevented || e.repeat) return;
+    if (e.target.closest && e.target.closest('button, a, [role=button]')) return; // Space still presses a focused button
+    e.preventDefault();
+    openModal('home');
+    return;
+  }
   if (e.key === '/') { e.preventDefault(); openModal('home', true); }
   else if (e.key === '?') openSheet('help');
   else if (e.key === 'Escape') {
@@ -1287,6 +1341,12 @@ window.addEventListener('keydown', (e) => {
   else if (state.selected && (k === '1' || k === '2' || k === '0')) setDepth(k === '0' ? Infinity : +k);
   else if (k === '+' || k === '=') zoom(0.72);
   else if (k === '-') zoom(1.38);
+});
+// Toolbar buttons clicked with the mouse let go of focus, so Space means "Home" again instead of re-pressing them.
+// (Time travel keeps it: there Space plays and pauses.)
+document.addEventListener('click', (e) => {
+  const b = e.detail > 0 && e.target.closest && e.target.closest('#dock button, #top-right button, #home-btn, #back');
+  if (b) b.blur();
 });
 function trapFocus(e, root) {
   const f = [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled && el.offsetParent !== null);
@@ -1343,6 +1403,7 @@ async function renderSettings() {
   $('#s-rotate').checked = state.rotating;
   $('#s-fps').checked = state.showFps;
   $('#s-quality').value = state.quality;
+  $('#s-motion').value = motionPref;
   $('#s-lang').innerHTML = LANGS.map(([v, l]) => `<option value="${v}" ${state.profile.lang === v ? 'selected' : ''}>${v === 'auto' ? t('Automatic') : l}</option>`).join('');
   $('#s-ignore').value = (state.profile.ignore || []).join('\n');
   const [vaults, detected] = await Promise.all([window.brain.vaults(), window.brain.detectVaults()]);
@@ -1395,6 +1456,10 @@ $('#s-colormode').addEventListener('change', (e) => setColorMode(e.target.value)
 $('#s-rotate').addEventListener('change', (e) => setRotating(e.target.checked));
 $('#s-fps').addEventListener('change', (e) => { state.showFps = e.target.checked; store.set('sbg.fps', state.showFps); updateSub(); });
 $('#s-quality').addEventListener('change', (e) => { state.quality = e.target.value; store.set('sbg.quality', state.quality); applyQualityPreset(); });
+function applyMotion() { document.body.classList.toggle('still', still()); }
+$('#s-motion').addEventListener('change', (e) => { motionPref = e.target.value; store.set('sbg.motion', motionPref); applyMotion(); });
+reducedMotion.addEventListener('change', applyMotion);
+applyMotion();
 $('#s-lang').addEventListener('change', async (e) => { const r = await window.brain.setLang(e.target.value); state.profile.lang = r.lang; switchLang(); });
 $('#w-lang').addEventListener('change', async (e) => { const r = await window.brain.setLang(e.target.value); state.profile.lang = r.lang; switchLang(); renderWelcome(); });
 $('#s-ignore-save').addEventListener('click', async () => {
@@ -1619,28 +1684,32 @@ function stepFps(dt) {
   }
 }
 
-let time = 0, lastNow = performance.now();
+// `spin` is the clock of everything that orbits (galaxy, dust, comets, the disc's swirl): it stops while paused.
+let time = 0, spin = 0, lastNow = performance.now();
 function frame() {
   requestAnimationFrame(frame);
   const now = performance.now();
   const dt = Math.min((now - lastNow) / 1000, 0.05);
   lastNow = now;
   time += dt;
+  const sdt = state.rotating ? dt : 0;
+  spin += sdt;
   adaptQuality(dt);
   stepFps(dt);
-  if (state.rotating) galaxy.rotation.y += ROT_SPEED() * dt;
+  galaxy.rotation.y += ROT_SPEED() * sdt;
   galaxy.updateMatrixWorld();
-  stepOrbits(state.rotating && !reducedMotion.matches ? dt : dt * 0.25);
+  stepOrbits(still() ? sdt * 0.25 : sdt);
 
   stepFollow();
   stepFlight(dt);
   controls.update();
+  stepZoom(dt);
   if (camera.position.length() < RS * 2.4) camera.position.setLength(RS * 2.4);
   camera.updateMatrixWorld();
 
   if (focusCur && starPoints) {
     let changed = false;
-    const k = reducedMotion.matches ? 1 : Math.min(1, dt * 4);
+    const k = still() ? 1 : Math.min(1, dt * 4);
     for (let i = 0; i < focusCur.length; i++) {
       const d = focusTarget[i] - focusCur[i];
       if (Math.abs(d) > 0.002) { focusCur[i] += d * k; changed = true; } else focusCur[i] = focusTarget[i];
@@ -1664,9 +1733,9 @@ function frame() {
   if (linesObj) linesMat.opacity = state.selected || state.focusedConst || filterMatch ? 0.45 : 1;
   starMat.uniforms.uTime.value = time;
   linkMat.uniforms.uTime.value = time;
-  dustMat.uniforms.uTime.value = time;
+  dustMat.uniforms.uTime.value = spin;
 
-  LU.uTime.value = time;
+  LU.uTime.value = spin;
   LU.uCamPos.value.copy(camera.position);
   LU.uInvProj.value.copy(camera.projectionMatrixInverse);
   LU.uCamWorld.value.copy(camera.matrixWorld);
@@ -1716,8 +1785,8 @@ function runShot(shot) {
   if (!state.data.length || !state.model.notes.length) return;
   controls.target.set(0, 0, 0);
   galaxy.updateMatrixWorld();
-  if (shot === 'bh') camera.position.copy(DEFAULT_CAM).setLength(RS * 15);
-  else if (shot === 'greet') { $('#greet').classList.remove('out'); showGreet(); }
+  if (shot === 'bh') camera.position.copy(bhView());
+  else if (shot === 'greet') { $('#greet').classList.remove('out'); showGreet({ instant: true }); }
   else if (shot === 'home' || shot === 'stats' || shot === 'pages' || shot === 'filters') openModal(shot);
   else if (shot === 'search') { openModal('home', true); q.value = state.model.notes[0].title.split(/\s+/)[0]; renderModal(); }
   else if (shot === 'filter') { setFilter({ orphans: true }); }

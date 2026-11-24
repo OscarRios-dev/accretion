@@ -93,7 +93,12 @@ export const LensShader = {
       return vec4(c, clamp(dens * 0.9, 0.0, 0.97));
     }
 
-    vec3 accel(vec3 p, float h2) { float r = length(p); return -1.5 * h2 * p / pow(r, 5.0); }
+    // Bending fades out toward the edge of the influence sphere instead of stopping dead at it, so there is no
+    // visible "glass bubble" rim where the warped background meets the straight one.
+    vec3 accel(vec3 p, float h2) {
+      float r = length(p);
+      return -1.5 * h2 * p / pow(r, 5.0) * (1.0 - smoothstep(uInfl * 0.55, uInfl, r));
+    }
 
     void main() {
       vec4 base = texture2D(tDiffuse, vUv);

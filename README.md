@@ -27,7 +27,7 @@ Every note is a star, every folder a constellation, every `[[link]]` a path of l
   - A group comparison table, plus length, freshness and tasks.
   - A **To review** list: cited stubs, forgotten key notes, orphans and old tasks.
 - **Pins, screenshots, cinema mode.** Pin notes to Home, save a clean wallpaper-ready PNG, or hide the UI.
-- **English and Spanish**, keyboard-accessible, respects *reduced motion*.
+- **English and Spanish**, keyboard-accessible, respects *reduced motion* (Settings → Motion).
 - Works with Obsidian vaults **and any folder of Markdown notes**.
 
 ## Install
@@ -66,6 +66,7 @@ npm run package      # Windows build in dist/  (package:mac, package:linux)
 
 | Keys | Action |
 | --- | --- |
+| `Space` | Home and statistics |
 | `Ctrl` `K` or `/` | Search every note (`#tag` to filter) |
 | `Shift` `Enter` (in search) | Highlight results on the map |
 | `P` | All notes by group |
@@ -74,7 +75,7 @@ npm run package      # Windows build in dist/  (package:mac, package:linux)
 | `1` `2` `0` | Neighbourhood depth of the selected note |
 | `T` | Time travel |
 | `B` | Fly to the black hole |
-| `C` | Colour by group |
+| `C` | Star colour: white · by group · activity heat |
 | `S` | Save screenshot |
 | `R` | Pause / resume rotation |
 | `H` | Cinema mode (hide UI) |

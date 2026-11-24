@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.3.0
+
+### Added
+- **Activity heat** star colour: recently edited notes glow hot, dormant ones cool (`C` cycles white · group · heat).
+- During **time travel**, new notes spiral in from the outer disc as they are created.
+- `Space` opens Home and statistics.
+- **Motion** setting (Automatic · Full · Reduced).
+- The greeting types itself out.
+
+### Changed
+- The **accretion disc** now lies in the galaxy's plane, so the black hole has the right perspective from every angle; `B` flies to a low view over the disc. The lens fades out smoothly instead of leaving a hard rim.
+- **Smooth zoom**: wheel and `+`/`−` glide instead of jumping.
+- Faster, eased flight when clicking a group.
+- Amber accent colour.
+- With the system's "reduce motion" on (also set when Windows' animation effects are off), *Automatic* now shortens animations instead of removing them; *Reduced* removes them.
+
+### Fixed
+- The pause button's icon never changed, and comets, dust and the disc kept moving while paused.
+- Removed an empty button under the black hole.
+
 ## 2.2.0 — first public release
 
 ### Added
