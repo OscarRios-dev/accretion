@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Accretion">
+<defs>
+<linearGradient id="a-arc" x1="27" y1="0" x2="77" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ECECEE"/><stop offset=".55" stop-color="#F6E2C8"/><stop offset="1" stop-color="#F4C38C"/></linearGradient>
+<linearGradient id="a-disc" x1="4" y1="0" x2="96" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#E39A55"/><stop offset="1" stop-color="#F2BA80"/></linearGradient>
+<path id="a-cres" fill-rule="evenodd" d="M4 54A46 9.5 0 1 0 96 54A46 9.5 0 1 0 4 54ZM7.7 52.6A43.5 4.4 0 1 0 94.7 52.6A43.5 4.4 0 1 0 7.7 52.6Z"/>
+<clipPath id="a-front"><rect x="-10" y="54" width="120" height="60"/></clipPath>
+<clipPath id="a-back"><rect x="-10" y="-10" width="120" height="64.6"/></clipPath>
+<mask id="a-cutFront" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><g transform="rotate(-12.5 50 54)" clip-path="url(#a-front)"><use href="#a-cres" fill="#000" stroke="#000" stroke-width="3.4" stroke-linejoin="round"/></g></mask>
+<mask id="a-cutRing" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><circle cx="52" cy="53" r="21.849999999999998" fill="#000"/><path d="M27.66894987880712 48.2A24.8 24.8 0 0 1 76.33105012119287 48.2" fill="none" stroke="#000" stroke-width="7"/></mask>
+</defs>
+<g mask="url(#a-cutRing)"><g transform="rotate(-12.5 50 54)" clip-path="url(#a-back)"><use href="#a-cres" fill="url(#a-disc)"/></g></g>
+<g mask="url(#a-cutFront)"><circle cx="52" cy="53" r="18.2" fill="none" stroke="#ECECEE" stroke-width="3.9"/><path d="M27.66894987880712 48.2A24.8 24.8 0 0 1 76.33105012119287 48.2" fill="none" stroke="url(#a-arc)" stroke-width="3.6"/></g>
+<g transform="rotate(-12.5 50 54)" clip-path="url(#a-front)"><use href="#a-cres" fill="url(#a-disc)"/></g>
+</svg>

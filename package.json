@@ -1,7 +1,7 @@
 {
   "name": "accretion",
   "productName": "Accretion",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Explore your Obsidian vault as a 3D galaxy around a ray-traced black hole. Local, private, offline.",
   "main": "main.js",
   "author": "Accretion contributors",

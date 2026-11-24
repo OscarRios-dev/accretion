@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.1
+
+### Changed
+- **New logo**: a black hole with an amber accretion disc, in the app (top-left and welcome screen), the README and every app icon.
+- macOS builds now carry the app icon; Windows icons include sharp 16–48 px sizes.
+
 ## 2.3.0
 
 ### Added

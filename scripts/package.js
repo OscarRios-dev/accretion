@@ -24,7 +24,8 @@ const ignore = (p) => p !== '' && !KEEP.some((re) => re.test(p)) || /bundle\.js\
     prune: true,
     ignore,
     asar: { unpackDir: 'examples' }, // the demo vault is read & watched as a normal folder
-    icon: platform === 'win32' ? path.join(root, 'build', 'icon.ico') : undefined,
+    // Icons come from build/make-icon.js (Linux takes its window icon from app/icon.png at runtime).
+    icon: { win32: path.join(root, 'build', 'icon.ico'), darwin: path.join(root, 'build', 'icon.icns') }[platform],
     appCopyright: 'MIT License · Accretion contributors',
     win32metadata: { CompanyName: 'Accretion', FileDescription: 'Accretion', ProductName: 'Accretion' },
   });

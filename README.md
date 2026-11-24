@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo.svg">
+    <img src="docs/logo-light.svg" width="132" alt="Accretion logo: a black hole with an amber accretion disc">
+  </picture>
+</p>
+
 # Accretion
 
 **Your notes, accreting around a black hole.** Explore your Obsidian vault as a 3D galaxy around a ray-traced black hole.
